@@ -167,10 +167,8 @@ public class HydroponicBedTile extends IndustrialWorkingTile<HydroponicBedTile> 
                 return cachedRecollectable;
             };
             Block block = state.getBlock();
-            if (!this.level.isEmptyBlock(up) && this.water.getFluidAmount() >= 10) {
-                //if (block instanceof SpecialPlantable specialPlantable && ((IPlantable) block).getPlantType(this.level, up) == PlantType.NETHER && !this.water.getFluid().getFluid().isSame(Fluids.LAVA))
-                //    return new WorkAction(1, 0);
-                if (state.getBlock() instanceof BonemealableBlock) {
+            if (this.water.getFluidAmount() >= 10) {
+                if (!state.isAir() && state.getBlock() instanceof BonemealableBlock) {
                     BonemealableBlock growable = (BonemealableBlock) this.level.getBlockState(up).getBlock();
                     if (growable.isValidBonemealTarget(this.level, up, this.level.getBlockState(up)) || state.getBlock() instanceof StemBlock) {
                         if (this.etherBuffer.getProgress() > 0) {

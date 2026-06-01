@@ -27,6 +27,7 @@ import com.buuz135.industrial.utils.BlockUtils;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 import java.util.ArrayList;
@@ -46,8 +47,25 @@ public class TreePlantRecollectable extends PlantRecollectable {
     @Override
     public boolean canBeHarvested(Level world, BlockPos pos, BlockState blockState) {
         if (treeCache.containsKey(pos)) return true;
-        if (BlockUtils.isLog(world, pos)) {
-            TreeCache cache = new TreeCache(world, pos);
+        BlockPos actual = pos;
+        if (world.isEmptyBlock(actual)) {
+            for (int i = 1; i <= 12; i++) {
+                BlockPos checkPos = pos.above(i);
+                BlockState checkState = world.getBlockState(checkPos);
+                if (BlockUtils.isLog(world, checkPos)) {
+                    // Only allow gap skipping for Mangroves
+                    if (checkState.is(Blocks.MANGROVE_ROOTS) || checkState.is(Blocks.MUDDY_MANGROVE_ROOTS) || checkState.is(Blocks.MANGROVE_LOG) || checkState.is(Blocks.MANGROVE_WOOD)) {
+                        actual = checkPos;
+                        break;
+                    } else {
+                        // For other trees, we don't skip air gaps
+                        return false;
+                    }
+                }
+            }
+        }
+        if (BlockUtils.isLog(world, actual)) {
+            TreeCache cache = new TreeCache(world, actual);
             cache.scanForTreeBlockSection();
             treeCache.put(pos, cache);
             return true;

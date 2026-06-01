@@ -4,7 +4,7 @@
  * Copyright 2021, Buuz135
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
- * this software and associated documentation files (the "Software"), to deal in the
+ * this software and associated documentation files (the \"Software\"), to deal in the
  * Software without restriction, including without limitation the rights to use, copy,
  * modify, merge, publish, distribute, sublicense, and/or sell copies of the Software,
  * and to permit persons to whom the Software is furnished to do so, subject to the
@@ -13,7 +13,7 @@
  * The above copyright notice and this permission notice shall be included in all copies
  * or substantial portions of the Software.
  *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+ * THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
  * INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
  * PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
  * FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
@@ -44,7 +44,7 @@ public class TreeCache {
 
     public TreeCache(Level world, BlockPos current) {
         this.woodCache = new PriorityQueue<>(Comparator.comparingDouble(value -> ((BlockPos) value).distSqr(new Vec3i(((BlockPos) value).getX(), current.getY(), ((BlockPos) value).getZ()))).reversed());
-        this.leavesCache = new PriorityQueue<>(Comparator.comparingDouble(value -> ((BlockPos) value).distSqr(new Vec3i(current.getX(), ((BlockPos) value).getY(), current.getZ()))).reversed());
+        this.leavesCache = new PriorityQueue<>(Comparator.comparingInt(Vec3i::getY));
         this.world = world;
         this.current = current;
     }
@@ -88,28 +88,70 @@ public class TreeCache {
         }
         while (!tree.isEmpty()) {
             BlockPos checking = tree.pop();
-            if (BlockUtils.isLeaves(world, checking) || BlockUtils.isLog(world, checking)) {
-                for (BlockPos pos : BlockPos.betweenClosed(checking.offset(-1, 0, -1), checking.offset(1, 1, 1))) {
+            if (BlockUtils.isLeaves(world, checking) || BlockUtils.isLog(world, checking) || world.getBlockState(checking).getBlock().equals(net.minecraft.world.level.block.Blocks.BEE_NEST)) {
+                boolean isMangrove = world.getBlockState(checking).is(Blocks.MANGROVE_ROOTS) || world.getBlockState(checking).is(Blocks.MUDDY_MANGROVE_ROOTS) || world.getBlockState(checking).is(Blocks.MANGROVE_LOG) || world.getBlockState(checking).is(Blocks.MANGROVE_WOOD) || world.getBlockState(checking).is(Blocks.MANGROVE_LEAVES);
+                for (BlockPos pos : BlockPos.betweenClosed(checking.offset(-1, -1, -1), checking.offset(1, 1, 1))) {
                     BlockPos blockPos = pos.immutable();
-                    if (world.isEmptyBlock(blockPos) || checkedPositions.contains(blockPos) || blockPos.distManhattan(new Vec3i(current.getX(), current.getY(), current.getZ())) > 100 /*BlockRegistry.cropRecolectorBlock.getMaxDistanceTreeBlocksScan()*/)
+                    if (checkedPositions.contains(blockPos) || blockPos.distManhattan(new Vec3i(current.getX(), current.getY(), current.getZ())) > 100)
                         continue;
-                    if (BlockUtils.isLeaves(world, blockPos)) {
-                        tree.push(blockPos);
-                        leavesCache.add(blockPos);
-                        checkedPositions.add(blockPos);
-                    } else if (BlockUtils.isLog(world, blockPos)) {
-                        tree.push(blockPos);
-                        woodCache.add(blockPos);
-                        checkedPositions.add(blockPos);
+                    processBlock(blockPos, tree, checkedPositions);
+                }
+                if (isMangrove) {
+                    // Vertical gap search for Mangroves
+                    for (int i = -12; i <= 12; i++) {
+                        if (i >= -1 && i <= 1) continue;
+                        BlockPos blockPos = checking.above(i);
+                        if (checkedPositions.contains(blockPos) || blockPos.distManhattan(new Vec3i(current.getX(), current.getY(), current.getZ())) > 100)
+                            continue;
+                        processBlock(blockPos, tree, checkedPositions);
                     }
                 }
             }
         }
     }
 
+    private boolean processBlock(BlockPos blockPos, Stack<BlockPos> tree, Set<BlockPos> checkedPositions) {
+        if (world.isEmptyBlock(blockPos)) return false;
+        if (BlockUtils.isLeaves(world, blockPos)) {
+            tree.push(blockPos);
+            leavesCache.add(blockPos);
+            checkedPositions.add(blockPos);
+            return true;
+        } else if (world.getBlockState(blockPos).getBlock().equals(net.minecraft.world.level.block.Blocks.BEE_NEST)) {
+            tree.push(blockPos);
+            leavesCache.add(blockPos);
+            checkedPositions.add(blockPos);
+            return true;
+        } else if (BlockUtils.isLog(world, blockPos)) {
+            tree.push(blockPos);
+            woodCache.add(blockPos);
+            checkedPositions.add(blockPos);
+            return true;
+        }
+        return false;
+    }
+
     public BlockPos getHighestBlock(BlockPos position) {
-        while (!this.world.isEmptyBlock(position.above()) && (BlockUtils.isLog(this.world, position.above()) || BlockUtils.isLeaves(this.world, position.above())))
-            position = position.above();
-        return position;
+        BlockPos lastFound = position;
+        boolean isMangrove = world.getBlockState(position).is(Blocks.MANGROVE_ROOTS) || world.getBlockState(position).is(Blocks.MUDDY_MANGROVE_ROOTS);
+        for (int i = 1; i <= 100; i++) {
+            BlockPos check = position.above(i);
+            if (BlockUtils.isLog(this.world, check) || BlockUtils.isLeaves(this.world, check)) {
+                lastFound = check;
+            } else {
+                boolean foundMore = false;
+                int gapLimit = isMangrove ? 12 : 2;
+                for (int j = 1; j <= gapLimit; j++) {
+                    if (BlockUtils.isLog(this.world, check.above(j)) || BlockUtils.isLeaves(this.world, check.above(j))) {
+                        foundMore = true;
+                        i += j;
+                        lastFound = check.above(j);
+                        break;
+                    }
+                }
+                if (!foundMore) break;
+            }
+        }
+        return lastFound;
     }
 }

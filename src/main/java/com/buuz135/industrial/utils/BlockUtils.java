@@ -70,7 +70,7 @@ public class BlockUtils {
     }
 
     public static boolean isLog(Level world, BlockPos pos) {
-        return isBlockTag(world, pos, BlockTags.LOGS) || world.getBlockState(pos).is(Blocks.MANGROVE_ROOTS);
+        return isBlockTag(world, pos, BlockTags.LOGS) || world.getBlockState(pos).is(Blocks.MANGROVE_ROOTS) || world.getBlockState(pos).is(Blocks.MUDDY_MANGROVE_ROOTS);
     }
 
     public static boolean isLeaves(Level world, BlockPos pos) {
@@ -78,6 +78,7 @@ public class BlockUtils {
                 || world.getBlockState(pos).is(BlockTags.LEAVES)
                 || world.getBlockState(pos).getBlock().equals(Blocks.SHROOMLIGHT)
                 || world.getBlockState(pos).getBlock().equals(Blocks.MOSS_CARPET)
+                || world.getBlockState(pos).getBlock().equals(Blocks.VINE)
                 || (world.getBlockState(pos).getBlock().equals(Blocks.MANGROVE_PROPAGULE) && world.getBlockState(pos).getValue(MangrovePropaguleBlock.HANGING));
     }
 
